@@ -320,24 +320,34 @@ class BazaarBilling(private val context: Context) {
                 return null
             }
 
+            Log.d(TAG, "Getting buy intent for product: $productId")
+            
             val response = billingService?.getBuyIntent(
                 API_VERSION,
                 context.packageName,
                 productId,
-                ITEM_TYPE_INAPP,
+                "inapp",
                 developerPayload ?: ""
             )
+            
             val responseCode = response?.getInt("RESPONSE_CODE") ?: -1
-
+            Log.d(TAG, "Buy intent response code: $responseCode")
+            
             if (responseCode == 0) {
                 val pendingIntent = response?.getParcelable<android.app.PendingIntent>("BUY_INTENT")
-                mapOf<String, Any>(
-                    "pendingIntent" to (pendingIntent ?: ""),
-                    "responseCode" to responseCode
-                )
+                if (pendingIntent != null) {
+                    Log.d(TAG, "Successfully got buy intent for product: $productId")
+                    mapOf(
+                        "pendingIntent" to pendingIntent,
+                        "responseCode" to responseCode
+                    )
+                } else {
+                    Log.e(TAG, "Buy intent returned null pending intent")
+                    null
+                }
             } else {
                 Log.e(TAG, "Failed to get buy intent, response code: $responseCode")
-                null
+                mapOf("responseCode" to responseCode)
             }
         } catch (e: RemoteException) {
             Log.e(TAG, "Failed to get buy intent", e)

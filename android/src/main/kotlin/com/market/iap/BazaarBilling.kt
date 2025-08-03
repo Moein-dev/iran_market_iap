@@ -93,6 +93,7 @@ class BazaarBilling(private val context: Context) {
             if (isConnected) {
                 context.unbindService(serviceConnection)
                 isConnected = false
+                Log.d(TAG, "Disconnected from CafeBazaar billing service")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to disconnect from Bazaar billing service", e)

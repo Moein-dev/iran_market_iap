@@ -15,6 +15,7 @@ import java.security.Signature
 import java.security.KeyFactory
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
+import androidx.annotation.NonNull
 
 /**
  * Main plugin class for Market IAP
@@ -39,8 +40,11 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
         channel.setMethodCallHandler(this)
     }
 
-    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        // Clean up billing connections
+        bazaarBilling?.disconnect()
+        myketBilling?.disconnect()
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {

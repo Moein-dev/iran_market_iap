@@ -93,6 +93,7 @@ class MyketBilling(private val context: Context) {
             if (isConnected) {
                 context.unbindService(serviceConnection)
                 isConnected = false
+                Log.d(TAG, "Disconnected from Myket billing service")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to disconnect from Myket billing service", e)

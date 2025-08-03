@@ -84,15 +84,24 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
             val market = call.argument<String>("market") ?: "cafebazaar"
             currentMarket = market
 
+            // Check if activity is available
+            if (activity == null) {
+                Log.w(TAG, "Activity is null during initialization")
+                result.success(false)
+                return
+            }
+
             when (market) {
                 "cafebazaar" -> {
                     bazaarBilling = BazaarBilling(activity!!)
                     val connected = bazaarBilling?.connect() ?: false
+                    Log.d(TAG, "CafeBazaar billing initialized: $connected")
                     result.success(connected)
                 }
                 "myket" -> {
                     myketBilling = MyketBilling(activity!!)
                     val connected = myketBilling?.connect() ?: false
+                    Log.d(TAG, "Myket billing initialized: $connected")
                     result.success(connected)
                 }
                 else -> {
@@ -359,13 +368,19 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
      */
     private fun verifySignature(data: String, signature: String): Boolean {
         return try {
-            if (rsaPublicKey.isNullOrEmpty()) {
+            val currentRsaKey = rsaPublicKey
+            if (currentRsaKey.isNullOrEmpty()) {
                 Log.w(TAG, "RSA public key is not set")
                 return false
             }
 
+            Log.d(TAG, "Verifying signature with RSA key length: ${currentRsaKey.length}")
+            Log.d(TAG, "Data length: ${data.length}, Signature length: ${signature.length}")
+
             // Decode the public key
-            val keyBytes = Base64.getDecoder().decode(rsaPublicKey)
+            val keyBytes = Base64.getDecoder().decode(currentRsaKey)
+            Log.d(TAG, "Decoded key bytes length: ${keyBytes.size}")
+            
             val keySpec = X509EncodedKeySpec(keyBytes)
             val keyFactory = KeyFactory.getInstance("RSA")
             val publicKey = keyFactory.generatePublic(keySpec)
@@ -377,6 +392,7 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
 
             // Decode the signature
             val signatureBytes = Base64.getDecoder().decode(signature)
+            Log.d(TAG, "Decoded signature bytes length: ${signatureBytes.size}")
 
             // Verify the signature
             val isValid = signatureVerifier.verify(signatureBytes)
@@ -384,6 +400,9 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
             isValid
         } catch (e: Exception) {
             Log.e(TAG, "Failed to verify signature", e)
+            Log.e(TAG, "RSA key: ${rsaPublicKey?.take(50)}...")
+            Log.e(TAG, "Data: ${data.take(100)}...")
+            Log.e(TAG, "Signature: ${signature.take(50)}...")
             false
         }
     }

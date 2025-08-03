@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.IBinder
 import android.os.RemoteException
@@ -49,19 +50,59 @@ class MyketBilling(private val context: Context) {
      */
     fun connect(): Boolean {
         return try {
-            val intent = Intent(MYKET_BILLING_SERVICE)
-            intent.setPackage(MYKET_PACKAGE)
+            // First, check if the app is installed
+            val appInstalled = try {
+                context.packageManager.getPackageInfo(MYKET_PACKAGE, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
             
-            // Check if the service is available
-            val resolveInfo = context.packageManager.resolveService(intent, 0)
-            if (resolveInfo == null) {
-                Log.w(TAG, "Myket billing service not available - app may not be installed")
+            if (!appInstalled) {
+                Log.w(TAG, "Myket app is not installed")
                 return false
             }
             
-            val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-            Log.d(TAG, "Myket billing service bind result: $result")
-            return result
+            Log.d(TAG, "Myket app is installed, checking for billing services...")
+            
+            // List all services in the app for debugging
+            try {
+                val packageInfo = context.packageManager.getPackageInfo(MYKET_PACKAGE, PackageManager.GET_SERVICES)
+                Log.d(TAG, "Available services in Myket:")
+                packageInfo.services?.forEach { service ->
+                    Log.d(TAG, "  - ${service.name}")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not list services: $e")
+            }
+            
+            // Try different service names
+            val serviceNames = listOf(
+                "ir.mservices.market.service.InAppBillingService.BIND",
+                "ir.mservices.market.service.BillingService.BIND",
+                "ir.mservices.market.service.IInAppBillingService.BIND",
+                "ir.mservices.market.billing.InAppBillingService.BIND"
+            )
+            
+            for (serviceName in serviceNames) {
+                Log.d(TAG, "Trying service: $serviceName")
+                val intent = Intent(serviceName)
+                intent.setPackage(MYKET_PACKAGE)
+                
+                // Check if the service is available
+                val resolveInfo = context.packageManager.resolveService(intent, 0)
+                if (resolveInfo != null) {
+                    Log.d(TAG, "Found service: $serviceName")
+                    val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+                    Log.d(TAG, "Myket billing service bind result: $result")
+                    return result
+                } else {
+                    Log.d(TAG, "Service not found: $serviceName")
+                }
+            }
+            
+            Log.w(TAG, "Myket app is installed but billing service not found")
+            return false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to Myket billing service", e)
             return false

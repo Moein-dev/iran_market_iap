@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
 import org.json.JSONObject
+import android.content.pm.PackageManager
 
 /**
  * CafeBazaar billing implementation
@@ -49,19 +50,59 @@ class BazaarBilling(private val context: Context) {
      */
     fun connect(): Boolean {
         return try {
-            val intent = Intent(BAZAAR_BILLING_SERVICE)
-            intent.setPackage(BAZAAR_PACKAGE)
+            // First, check if the app is installed
+            val appInstalled = try {
+                context.packageManager.getPackageInfo(BAZAAR_PACKAGE, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
             
-            // Check if the service is available
-            val resolveInfo = context.packageManager.resolveService(intent, 0)
-            if (resolveInfo == null) {
-                Log.w(TAG, "CafeBazaar billing service not available - app may not be installed")
+            if (!appInstalled) {
+                Log.w(TAG, "CafeBazaar app is not installed")
                 return false
             }
             
-            val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-            Log.d(TAG, "CafeBazaar billing service bind result: $result")
-            return result
+            Log.d(TAG, "CafeBazaar app is installed, checking for billing services...")
+            
+            // List all services in the app for debugging
+            try {
+                val packageInfo = context.packageManager.getPackageInfo(BAZAAR_PACKAGE, PackageManager.GET_SERVICES)
+                Log.d(TAG, "Available services in CafeBazaar:")
+                packageInfo.services?.forEach { service ->
+                    Log.d(TAG, "  - ${service.name}")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not list services: $e")
+            }
+            
+            // Try different service names
+            val serviceNames = listOf(
+                "com.farsitel.bazaar.service.InAppBillingService.BIND",
+                "com.farsitel.bazaar.service.BillingService.BIND",
+                "com.farsitel.bazaar.service.IInAppBillingService.BIND",
+                "com.farsitel.bazaar.billing.InAppBillingService.BIND"
+            )
+            
+            for (serviceName in serviceNames) {
+                Log.d(TAG, "Trying service: $serviceName")
+                val intent = Intent(serviceName)
+                intent.setPackage(BAZAAR_PACKAGE)
+                
+                // Check if the service is available
+                val resolveInfo = context.packageManager.resolveService(intent, 0)
+                if (resolveInfo != null) {
+                    Log.d(TAG, "Found service: $serviceName")
+                    val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+                    Log.d(TAG, "CafeBazaar billing service bind result: $result")
+                    return result
+                } else {
+                    Log.d(TAG, "Service not found: $serviceName")
+                }
+            }
+            
+            Log.w(TAG, "CafeBazaar app is installed but billing service not found")
+            return false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to Bazaar billing service", e)
             return false

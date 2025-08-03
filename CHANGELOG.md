@@ -5,6 +5,25 @@ All notable changes to the `iran_market_iap` package will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2024-12-19
+
+### Added
+- **Enhanced service discovery** - Added comprehensive debugging to identify available billing services
+- **Multiple service name attempts** - Plugin now tries different service names to find the correct billing service
+- **Service listing** - Added ability to list all available services in installed apps for debugging
+- **Better app detection** - Improved detection of whether billing apps are actually installed
+
+### Improved
+- **Debugging capabilities** - Added detailed logging to help identify why billing services aren't found
+- **Service name flexibility** - Plugin tries multiple common service name patterns
+- **Error reporting** - More informative error messages for service discovery issues
+
+### Technical Details
+- **Service discovery**: Lists all services in installed apps to help identify correct service names
+- **Multiple service patterns**: Tries different service name patterns commonly used by billing services
+- **Enhanced logging**: Detailed debug output to help troubleshoot service connection issues
+- **App verification**: Verifies app installation before attempting service discovery
+
 ## [0.0.5] - 2024-12-19
 
 ### Fixed

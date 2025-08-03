@@ -2,10 +2,12 @@ group 'com.market.iap'
 version '1.0'
 
 buildscript {
-    ext.kotlin_version = '1.9.0'
+    ext.kotlin_version = '1.9.20'
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://storage.googleapis.com/download.flutter.io' }
+        maven { url 'https://jitpack.io' }
     }
 
     dependencies {
@@ -18,9 +20,8 @@ rootProject.allprojects {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url 'https://storage.googleapis.com/download.flutter.io'
-        }
+        maven { url 'https://storage.googleapis.com/download.flutter.io' }
+        maven { url 'https://jitpack.io' }
     }
 }
 
@@ -28,7 +29,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace 'com.market.iap'
+    namespace "com.market.iap"
     compileSdkVersion 34
 
     compileOptions {
@@ -42,7 +43,6 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
-        main.aidl.srcDirs += 'src/main/aidl'
     }
 
     defaultConfig {
@@ -60,7 +60,11 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'androidx.annotation:annotation:1.7.0'
-    implementation 'org.json:json:20231013'
     implementation 'androidx.core:core:1.10.0'
+    
+    // Gson for JSON handling (used by Myket plugin)
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // For now, we'll implement the billing logic directly without external SDKs
+    // This avoids dependency issues and gives us full control
 } 

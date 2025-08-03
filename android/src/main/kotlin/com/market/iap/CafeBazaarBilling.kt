@@ -1,17 +1,22 @@
 package com.market.iap
 
 import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.util.Log
 import com.google.gson.Gson
 
 /**
- * Myket billing implementation using direct service binding
+ * CafeBazaar billing implementation using direct service binding
  */
-class MyketBilling(private val activity: Activity) {
+class CafeBazaarBilling(private val activity: Activity) {
     companion object {
-        private const val TAG = "MyketBilling"
-        private const val MYKET_PACKAGE = "ir.mservices.market"
-        private const val MYKET_SERVICE = "ir.mservices.market.InAppBillingService.BIND"
+        private const val TAG = "CafeBazaarBilling"
+        private const val CAFEBAZAAR_PACKAGE = "com.farsitel.bazaar"
+        private const val CAFEBAZAAR_SERVICE = "ir.cafebazaar.pardakht.InAppBillingService.BIND"
     }
     
     private var isConnected = false
@@ -19,45 +24,45 @@ class MyketBilling(private val activity: Activity) {
     private val gson = Gson()
     
     /**
-     * Initialize Myket billing with RSA key
+     * Initialize CafeBazaar billing with RSA key
      */
     fun initialize(rsaKey: String?, enableDebugLogging: Boolean): Boolean {
         return try {
-            Log.d(TAG, "Initializing Myket billing with RSA key: ${rsaKey?.take(20)}...")
+            Log.d(TAG, "Initializing CafeBazaar billing with RSA key: ${rsaKey?.take(20)}...")
             
             if (rsaKey.isNullOrEmpty()) {
                 Log.w(TAG, "RSA key is empty, proceeding without signature verification")
             }
             
             isInitialized = true
-            Log.d(TAG, "Myket billing initialized successfully")
+            Log.d(TAG, "CafeBazaar billing initialized successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize Myket billing", e)
+            Log.e(TAG, "Failed to initialize CafeBazaar billing", e)
             false
         }
     }
     
     /**
-     * Connect to Myket billing service
+     * Connect to CafeBazaar billing service
      */
     fun connect(callback: (Boolean) -> Unit) {
         try {
             if (!isInitialized) {
-                Log.e(TAG, "Myket billing not initialized")
+                Log.e(TAG, "CafeBazaar billing not initialized")
                 callback(false)
                 return
             }
             
-            Log.d(TAG, "Connecting to Myket billing service...")
+            Log.d(TAG, "Connecting to CafeBazaar billing service...")
             
-            // Check if Myket app is installed
+            // Check if CafeBazaar app is installed
             val packageManager = activity.packageManager
             try {
-                packageManager.getPackageInfo(MYKET_PACKAGE, 0)
-                Log.d(TAG, "Myket app found")
+                packageManager.getPackageInfo(CAFEBAZAAR_PACKAGE, 0)
+                Log.d(TAG, "CafeBazaar app found")
             } catch (e: Exception) {
-                Log.e(TAG, "Myket app not found")
+                Log.e(TAG, "CafeBazaar app not found")
                 callback(false)
                 return
             }
@@ -65,23 +70,23 @@ class MyketBilling(private val activity: Activity) {
             // For now, simulate successful connection
             // In a real implementation, this would bind to the actual service
             isConnected = true
-            Log.d(TAG, "Myket billing connected successfully")
+            Log.d(TAG, "CafeBazaar billing connected successfully")
             callback(true)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to connect to Myket billing", e)
+            Log.e(TAG, "Failed to connect to CafeBazaar billing", e)
             callback(false)
         }
     }
     
     /**
-     * Disconnect from Myket billing service
+     * Disconnect from CafeBazaar billing service
      */
     fun disconnect() {
         try {
             isConnected = false
-            Log.d(TAG, "Myket billing disconnected")
+            Log.d(TAG, "CafeBazaar billing disconnected")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to disconnect from Myket billing", e)
+            Log.e(TAG, "Failed to disconnect from CafeBazaar billing", e)
         }
     }
     
@@ -98,7 +103,7 @@ class MyketBilling(private val activity: Activity) {
     fun purchase(productId: String, payload: String?, callback: (Map<String, Any>) -> Unit) {
         try {
             if (!isConnected) {
-                Log.e(TAG, "Myket billing not connected")
+                Log.e(TAG, "CafeBazaar billing not connected")
                 callback(mapOf<String, Any>(
                     "success" to false,
                     "error" to "Billing not connected"
@@ -114,7 +119,7 @@ class MyketBilling(private val activity: Activity) {
                 "success" to false,
                 "message" to "Purchase not fully implemented - requires actual service binding",
                 "productId" to productId,
-                "market" to "myket"
+                "market" to "cafebazaar"
             ))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to purchase product: $productId", e)
@@ -131,7 +136,7 @@ class MyketBilling(private val activity: Activity) {
     fun consume(purchaseToken: String, callback: (Map<String, Any>) -> Unit) {
         try {
             if (!isConnected) {
-                Log.e(TAG, "Myket billing not connected")
+                Log.e(TAG, "CafeBazaar billing not connected")
                 callback(mapOf<String, Any>(
                     "success" to false,
                     "error" to "Billing not connected"
@@ -146,7 +151,7 @@ class MyketBilling(private val activity: Activity) {
                 "success" to false,
                 "message" to "Consume not fully implemented - requires actual service binding",
                 "purchaseToken" to purchaseToken,
-                "market" to "myket"
+                "market" to "cafebazaar"
             ))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to consume purchase", e)
@@ -159,12 +164,12 @@ class MyketBilling(private val activity: Activity) {
     }
     
     /**
-     * Get all purchases
+     * Get all purchased products
      */
     fun getPurchases(callback: (Map<String, Any>) -> Unit) {
         try {
             if (!isConnected) {
-                Log.e(TAG, "Myket billing not connected")
+                Log.e(TAG, "CafeBazaar billing not connected")
                 callback(mapOf<String, Any>(
                     "success" to false,
                     "error" to "Billing not connected",
@@ -180,7 +185,7 @@ class MyketBilling(private val activity: Activity) {
                 "success" to false,
                 "message" to "Get purchases not fully implemented - requires actual service binding",
                 "purchases" to emptyList<Map<String, Any>>(),
-                "market" to "myket"
+                "market" to "cafebazaar"
             ))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get purchases", e)
@@ -198,7 +203,7 @@ class MyketBilling(private val activity: Activity) {
     fun getSkuDetails(skuIds: List<String>, callback: (Map<String, Any>) -> Unit) {
         try {
             if (!isConnected) {
-                Log.e(TAG, "Myket billing not initialized")
+                Log.e(TAG, "CafeBazaar billing not connected")
                 callback(mapOf<String, Any>(
                     "success" to false,
                     "error" to "Billing not connected",
@@ -214,7 +219,7 @@ class MyketBilling(private val activity: Activity) {
                 "success" to false,
                 "message" to "Get SKU details not fully implemented - requires actual service binding",
                 "skuDetails" to emptyList<Map<String, Any>>(),
-                "market" to "myket"
+                "market" to "cafebazaar"
             ))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get SKU details", e)

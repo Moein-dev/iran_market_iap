@@ -1,7 +1,7 @@
 package com.market.iap
 
 import android.app.Activity
-import android.content.Intent
+import android.content.Context
 import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -10,46 +10,392 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry
-import java.security.Signature
-import java.security.KeyFactory
-import java.security.spec.X509EncodedKeySpec
-import java.util.Base64
 import androidx.annotation.NonNull
 
 /**
- * Main plugin class for Market IAP
- * Handles platform channel communication and routes calls to appropriate billing implementation
+ * MarketIapPlugin
+ * A Flutter plugin for in-app purchases supporting Myket and CafeBazaar markets
+ * Following the same patterns as the official plugins
  */
-class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
-    companion object {
-        private const val TAG = "MarketIapPlugin"
-        private const val CHANNEL_NAME = "market_iap"
-        private const val REQUEST_CODE_PURCHASE = 1001
-    }
-
+class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var channel: MethodChannel
+    private lateinit var context: Context
     private var activity: Activity? = null
-    private var bazaarBilling: BazaarBilling? = null
+    
+    // Billing implementations
+    private var cafeBazaarBilling: CafeBazaarBilling? = null
     private var myketBilling: MyketBilling? = null
     private var currentMarket: String? = null
-    private var rsaPublicKey: String? = null
+    
+    companion object {
+        private const val TAG = "MarketIapPlugin"
+    }
 
-    override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(binding.binaryMessenger, CHANNEL_NAME)
+    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        channel = MethodChannel(flutterPluginBinding.flutterEngine.dartExecutor, "market_iap")
         channel.setMethodCallHandler(this)
+        context = flutterPluginBinding.applicationContext
+        
+        // Initialize configuration
+        ConfigManager.initialize(context)
+    }
+
+    override fun onMethodCall(call: MethodCall, result: Result) {
+        when (call.method) {
+            "init" -> handleInit(call, result)
+            "connect" -> handleConnect(call, result)
+            "disconnect" -> handleDisconnect(call, result)
+            "purchase" -> handlePurchase(call, result)
+            "consume" -> handleConsume(call, result)
+            "getPurchases" -> handleGetPurchases(call, result)
+            "getSkuDetails" -> handleGetSkuDetails(call, result)
+            "isBillingSupported" -> handleIsBillingSupported(call, result)
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun handleInit(call: MethodCall, result: Result) {
+        try {
+            // Get market type from .env file or use provided parameter
+            val market = call.argument<String>("market") ?: ConfigManager.getMarketType()
+            currentMarket = market
+            
+            val rsaKey = call.argument<String>("rsaKey") ?: ConfigManager.getRsaKeyForMarket(market)
+            val enableDebugLogging = call.argument<Boolean>("enableDebugLogging") ?: ConfigManager.isDebugLoggingEnabled()
+
+            Log.d(TAG, "Initializing Market IAP with market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    if (activity == null) {
+                        Log.e(TAG, "Activity is null during initialization")
+                        result.success(mapOf(
+                            "success" to false,
+                            "error" to "Activity is null"
+                        ))
+                        return
+                    }
+                    
+                    cafeBazaarBilling = CafeBazaarBilling(activity!!)
+                    val initialized = cafeBazaarBilling?.initialize(rsaKey, enableDebugLogging) ?: false
+                    
+                    if (initialized) {
+                        Log.d(TAG, "CafeBazaar billing initialized successfully")
+                        result.success(mapOf(
+                            "success" to true,
+                            "market" to market,
+                            "message" to "CafeBazaar initialized successfully"
+                        ))
+                    } else {
+                        Log.e(TAG, "Failed to initialize CafeBazaar billing")
+                        result.success(mapOf(
+                            "success" to false,
+                            "error" to "Failed to initialize CafeBazaar billing",
+                            "market" to market
+                        ))
+                    }
+                }
+                "myket" -> {
+                    if (activity == null) {
+                        Log.e(TAG, "Activity is null during initialization")
+                        result.success(mapOf(
+                            "success" to false,
+                            "error" to "Activity is null"
+                        ))
+                        return
+                    }
+                    
+                    myketBilling = MyketBilling(activity!!)
+                    val initialized = myketBilling?.initialize(rsaKey, enableDebugLogging) ?: false
+                    
+                    if (initialized) {
+                        Log.d(TAG, "Myket billing initialized successfully")
+                        result.success(mapOf(
+                            "success" to true,
+                            "market" to market,
+                            "message" to "Myket initialized successfully"
+                        ))
+                    } else {
+                        Log.e(TAG, "Failed to initialize Myket billing")
+                        result.success(mapOf(
+                            "success" to false,
+                            "error" to "Failed to initialize Myket billing",
+                            "market" to market
+                        ))
+                    }
+                }
+                else -> {
+                    Log.e(TAG, "Unsupported market: $market")
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleConnect(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+            
+            Log.d(TAG, "Connecting to market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.connect { connected ->
+                        if (connected) {
+                            Log.d(TAG, "CafeBazaar connected successfully")
+                            result.success(mapOf(
+                                "success" to true,
+                                "market" to market,
+                                "state" to "connected"
+                            ))
+                        } else {
+                            Log.e(TAG, "CafeBazaar connection failed")
+                            result.success(mapOf(
+                                "success" to false,
+                                "error" to "CafeBazaar connection failed",
+                                "market" to market
+                            ))
+                        }
+                    }
+                }
+                "myket" -> {
+                    myketBilling?.connect { connected ->
+                        if (connected) {
+                            Log.d(TAG, "Myket connected successfully")
+                            result.success(mapOf(
+                                "success" to true,
+                                "market" to market,
+                                "state" to "connected"
+                            ))
+                        } else {
+                            Log.e(TAG, "Myket connection failed")
+                            result.success(mapOf(
+                                "success" to false,
+                                "error" to "Myket connection failed",
+                                "market" to market
+                            ))
+                        }
+                    }
+                }
+                else -> {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to connect", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleDisconnect(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+            
+            Log.d(TAG, "Disconnecting from market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.disconnect()
+                    Log.d(TAG, "CafeBazaar disconnected")
+                }
+                "myket" -> {
+                    myketBilling?.disconnect()
+                    Log.d(TAG, "Myket disconnected")
+                }
+            }
+            
+            result.success(mapOf(
+                "success" to true,
+                "market" to market
+            ))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disconnect", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handlePurchase(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+            val productId = call.argument<String>("productId") ?: ""
+            val developerPayload = call.argument<String>("developerPayload")
+
+            Log.d(TAG, "Purchase request for product: $productId in market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.purchase(productId, developerPayload) { response ->
+                        result.success(response)
+                    }
+                }
+                "myket" -> {
+                    myketBilling?.purchase(productId, developerPayload) { response ->
+                        result.success(response)
+                    }
+                }
+                else -> {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to purchase", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleConsume(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+            val purchaseToken = call.argument<String>("purchaseToken") ?: ""
+
+            Log.d(TAG, "Consume request for purchase token: $purchaseToken in market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.consume(purchaseToken) { response ->
+                        result.success(response)
+                    }
+                }
+                "myket" -> {
+                    myketBilling?.consume(purchaseToken) { response ->
+                        result.success(response)
+                    }
+                }
+                else -> {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to consume", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleGetPurchases(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+
+            Log.d(TAG, "Get purchases request for market: $market")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.getPurchases { response ->
+                        result.success(response)
+                    }
+                }
+                "myket" -> {
+                    myketBilling?.getPurchases { response ->
+                        result.success(response)
+                    }
+                }
+                else -> {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get purchases", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleGetSkuDetails(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+            val skuIds = call.argument<List<String>>("skuIds") ?: emptyList()
+
+            Log.d(TAG, "Get SKU details request for market: $market, SKUs: $skuIds")
+
+            when (market.lowercase()) {
+                "cafebazaar" -> {
+                    cafeBazaarBilling?.getSkuDetails(skuIds) { response ->
+                        result.success(response)
+                    }
+                }
+                "myket" -> {
+                    myketBilling?.getSkuDetails(skuIds) { response ->
+                        result.success(response)
+                    }
+                }
+                else -> {
+                    result.success(mapOf(
+                        "success" to false,
+                        "error" to "Unsupported market: $market"
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get SKU details", e)
+            result.success(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    private fun handleIsBillingSupported(call: MethodCall, result: Result) {
+        try {
+            val market = call.argument<String>("market") ?: currentMarket ?: ConfigManager.getMarketType()
+
+            Log.d(TAG, "Billing supported check for market: $market")
+
+            val isSupported = when (market.lowercase()) {
+                "cafebazaar" -> cafeBazaarBilling?.isBillingSupported() ?: false
+                "myket" -> myketBilling?.isBillingSupported() ?: false
+                else -> false
+            }
+            
+            result.success(isSupported)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check billing support", e)
+            result.success(false)
+        }
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         // Clean up billing connections
-        bazaarBilling?.disconnect()
+        cafeBazaarBilling?.disconnect()
         myketBilling?.disconnect()
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
-        binding.addActivityResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
@@ -58,380 +404,9 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         activity = binding.activity
-        binding.addActivityResultListener(this)
     }
 
     override fun onDetachedFromActivity() {
         activity = null
-    }
-
-    override fun onMethodCall(call: MethodCall, result: Result) {
-        when (call.method) {
-            "init" -> handleInit(call, result)
-            "isBillingSupported" -> handleIsBillingSupported(call, result)
-            "getProducts" -> handleGetProducts(call, result)
-            "purchase" -> handlePurchase(call, result)
-            "consume" -> handleConsume(call, result)
-            "getPurchases" -> handleGetPurchases(call, result)
-            "getPurchaseHistory" -> handleGetPurchaseHistory(call, result)
-            "acknowledgePurchase" -> handleAcknowledgePurchase(call, result)
-            "verifyPurchaseSignature" -> handleVerifyPurchaseSignature(call, result)
-            else -> result.notImplemented()
-        }
-    }
-
-    /**
-     * Handle initialization
-     */
-    private fun handleInit(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: "cafebazaar"
-            currentMarket = market
-
-            // Check if activity is available
-            if (activity == null) {
-                Log.w(TAG, "Activity is null during initialization")
-                result.success(false)
-                return
-            }
-
-            when (market) {
-                "cafebazaar" -> {
-                    bazaarBilling = BazaarBilling(activity!!)
-                    val connected = bazaarBilling?.connect() ?: false
-                    Log.d(TAG, "CafeBazaar billing initialized: $connected")
-                    
-                    // Even if connection fails, we can still proceed with initialization
-                    // The billing operations will handle the connection state
-                    if (!connected) {
-                        Log.w(TAG, "CafeBazaar billing service connection failed, but continuing initialization")
-                    }
-                    
-                    result.success(true) // Always return true to allow initialization to proceed
-                }
-                "myket" -> {
-                    myketBilling = MyketBilling(activity!!)
-                    val connected = myketBilling?.connect() ?: false
-                    Log.d(TAG, "Myket billing initialized: $connected")
-                    
-                    // Even if connection fails, we can still proceed with initialization
-                    // The billing operations will handle the connection state
-                    if (!connected) {
-                        Log.w(TAG, "Myket billing service connection failed, but continuing initialization")
-                    }
-                    
-                    result.success(true) // Always return true to allow initialization to proceed
-                }
-                else -> {
-                    Log.e(TAG, "Unsupported market: $market")
-                    result.success(false)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize", e)
-            result.success(false)
-        }
-    }
-
-    /**
-     * Handle billing support check
-     */
-    private fun handleIsBillingSupported(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val isSupported = when (market) {
-                "cafebazaar" -> bazaarBilling?.isBillingSupported() ?: false
-                "myket" -> myketBilling?.isBillingSupported() ?: false
-                else -> false
-            }
-            result.success(isSupported)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to check billing support", e)
-            result.success(false)
-        }
-    }
-
-    /**
-     * Handle get products
-     */
-    private fun handleGetProducts(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val productIds = call.argument<List<String>>("productIds") ?: emptyList()
-
-            val products = when (market) {
-                "cafebazaar" -> bazaarBilling?.getSkuDetails(productIds) ?: emptyList()
-                "myket" -> myketBilling?.getSkuDetails(productIds) ?: emptyList()
-                else -> emptyList()
-            }
-            result.success(products)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get products", e)
-            result.success(emptyList<Map<String, Any>>())
-        }
-    }
-
-    /**
-     * Handle purchase
-     */
-    private fun handlePurchase(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val productId = call.argument<String>("productId") ?: ""
-            val developerPayload = call.argument<String>("developerPayload")
-            val rsaConfig = call.argument<Map<String, Any>>("rsaConfig")
-
-            // Set RSA key if provided
-            if (rsaConfig != null) {
-                rsaPublicKey = rsaConfig["publicKey"] as? String
-            }
-
-            val buyIntent = when (market) {
-                "cafebazaar" -> bazaarBilling?.getBuyIntent(productId, developerPayload)
-                "myket" -> myketBilling?.getBuyIntent(productId, developerPayload)
-                else -> null
-            }
-
-            if (buyIntent != null) {
-                val pendingIntent = buyIntent["pendingIntent"] as? android.app.PendingIntent
-                if (pendingIntent != null && activity != null) {
-                    activity!!.startIntentSenderForResult(
-                        pendingIntent.intentSender,
-                        REQUEST_CODE_PURCHASE,
-                        null,
-                        0,
-                        0,
-                        0
-                    )
-                    // Store the result callback to handle the purchase result
-                    // This is a simplified implementation - in a real app you'd need to handle the result properly
-                    result.success(null)
-                } else {
-                    result.success(null)
-                }
-            } else {
-                result.success(null)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to purchase", e)
-            result.success(null)
-        }
-    }
-
-    /**
-     * Handle consume purchase
-     */
-    private fun handleConsume(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val purchaseToken = call.argument<String>("purchaseToken") ?: ""
-
-            val success = when (market) {
-                "cafebazaar" -> bazaarBilling?.consumePurchase(purchaseToken) ?: false
-                "myket" -> myketBilling?.consumePurchase(purchaseToken) ?: false
-                else -> false
-            }
-            result.success(success)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to consume purchase", e)
-            result.success(false)
-        }
-    }
-
-    /**
-     * Handle get purchases
-     */
-    private fun handleGetPurchases(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val rsaConfig = call.argument<Map<String, Any>>("rsaConfig")
-
-            // Set RSA key if provided
-            if (rsaConfig != null) {
-                rsaPublicKey = rsaConfig["publicKey"] as? String
-            }
-
-            val purchases = when (market) {
-                "cafebazaar" -> bazaarBilling?.getPurchases() ?: emptyList()
-                "myket" -> myketBilling?.getPurchases() ?: emptyList()
-                else -> emptyList()
-            }
-
-            // Verify signatures if RSA key is available
-            val verifiedPurchases = if (rsaPublicKey != null) {
-                purchases.mapNotNull { purchase ->
-                    val signature = purchase["signature"] as? String
-                    if (signature != null && verifySignature(purchase["originalJson"] as String, signature)) {
-                        purchase
-                    } else {
-                        Log.w(TAG, "Purchase signature verification failed")
-                        null
-                    }
-                }
-            } else {
-                purchases
-            }
-
-            result.success(verifiedPurchases)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get purchases", e)
-            result.success(emptyList<Map<String, Any>>())
-        }
-    }
-
-    /**
-     * Handle get purchase history
-     */
-    private fun handleGetPurchaseHistory(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val rsaConfig = call.argument<Map<String, Any>>("rsaConfig")
-
-            // Set RSA key if provided
-            if (rsaConfig != null) {
-                rsaPublicKey = rsaConfig["publicKey"] as? String
-            }
-
-            val purchaseHistory = when (market) {
-                "cafebazaar" -> bazaarBilling?.getPurchaseHistory() ?: emptyList()
-                "myket" -> myketBilling?.getPurchaseHistory() ?: emptyList()
-                else -> emptyList()
-            }
-
-            // Verify signatures if RSA key is available
-            val verifiedHistory = if (rsaPublicKey != null) {
-                purchaseHistory.mapNotNull { purchase ->
-                    val signature = purchase["signature"] as? String
-                    if (signature != null && verifySignature(purchase["originalJson"] as String, signature)) {
-                        purchase
-                    } else {
-                        Log.w(TAG, "Purchase history signature verification failed")
-                        null
-                    }
-                }
-            } else {
-                purchaseHistory
-            }
-
-            result.success(verifiedHistory)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get purchase history", e)
-            result.success(emptyList<Map<String, Any>>())
-        }
-    }
-
-    /**
-     * Handle acknowledge purchase
-     */
-    private fun handleAcknowledgePurchase(call: MethodCall, result: Result) {
-        try {
-            val market = call.argument<String>("market") ?: currentMarket ?: "cafebazaar"
-            val purchaseToken = call.argument<String>("purchaseToken") ?: ""
-            val developerPayload = call.argument<String>("developerPayload")
-
-            val success = when (market) {
-                "cafebazaar" -> bazaarBilling?.acknowledgePurchase(purchaseToken, developerPayload) ?: false
-                "myket" -> myketBilling?.acknowledgePurchase(purchaseToken, developerPayload) ?: false
-                else -> false
-            }
-            result.success(success)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to acknowledge purchase", e)
-            result.success(false)
-        }
-    }
-
-    /**
-     * Handle verify purchase signature
-     */
-    private fun handleVerifyPurchaseSignature(call: MethodCall, result: Result) {
-        try {
-            val purchaseData = call.argument<Map<String, Any>>("purchaseData")
-            val rsaConfig = call.argument<Map<String, Any>>("rsaConfig")
-
-            if (purchaseData == null) {
-                result.success(false)
-                return
-            }
-
-            val originalJson = purchaseData["originalJson"] as? String
-            val signature = purchaseData["signature"] as? String
-
-            if (originalJson == null || signature == null) {
-                result.success(false)
-                return
-            }
-
-            // Set RSA key if provided
-            if (rsaConfig != null) {
-                rsaPublicKey = rsaConfig["publicKey"] as? String
-            }
-
-            val isValid = if (rsaPublicKey != null) {
-                verifySignature(originalJson, signature)
-            } else {
-                Log.w(TAG, "No RSA public key provided for signature verification")
-                false
-            }
-
-            result.success(isValid)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to verify purchase signature", e)
-            result.success(false)
-        }
-    }
-
-    /**
-     * Verify purchase signature using RSA public key
-     */
-    private fun verifySignature(data: String, signature: String): Boolean {
-        return try {
-            val currentRsaKey = rsaPublicKey
-            if (currentRsaKey.isNullOrEmpty()) {
-                Log.w(TAG, "RSA public key is not set")
-                return false
-            }
-
-            Log.d(TAG, "Verifying signature with RSA key length: ${currentRsaKey.length}")
-            Log.d(TAG, "Data length: ${data.length}, Signature length: ${signature.length}")
-
-            // Decode the public key
-            val keyBytes = Base64.getDecoder().decode(currentRsaKey)
-            Log.d(TAG, "Decoded key bytes length: ${keyBytes.size}")
-            
-            val keySpec = X509EncodedKeySpec(keyBytes)
-            val keyFactory = KeyFactory.getInstance("RSA")
-            val publicKey = keyFactory.generatePublic(keySpec)
-
-            // Create signature verifier
-            val signatureVerifier = Signature.getInstance("SHA256withRSA")
-            signatureVerifier.initVerify(publicKey)
-            signatureVerifier.update(data.toByteArray())
-
-            // Decode the signature
-            val signatureBytes = Base64.getDecoder().decode(signature)
-            Log.d(TAG, "Decoded signature bytes length: ${signatureBytes.size}")
-
-            // Verify the signature
-            val isValid = signatureVerifier.verify(signatureBytes)
-            Log.d(TAG, "Signature verification result: $isValid")
-            isValid
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to verify signature", e)
-            Log.e(TAG, "RSA key: ${rsaPublicKey?.take(50)}...")
-            Log.e(TAG, "Data: ${data.take(100)}...")
-            Log.e(TAG, "Signature: ${signature.take(50)}...")
-            false
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode == REQUEST_CODE_PURCHASE) {
-            // Handle purchase result
-            // This is a simplified implementation - in a real app you'd need to handle the result properly
-            Log.d(TAG, "Purchase result: $resultCode")
-            return true
-        }
-        return false
     }
 } 

@@ -1,122 +1,121 @@
-# Iran Market IAP Flutter Plugin
+# Iran Market IAP
 
-A Flutter plugin for in-app purchases supporting Myket and CafeBazaar markets using Platform Channels.
+A Flutter plugin for in-app purchases supporting **Myket** and **CafeBazaar** markets using Platform Channels.
 
 ## Features
 
-- ✅ Support for both CafeBazaar and Myket markets
-- ✅ Runtime market switching via environment variables
-- ✅ Platform channel communication (no official SDK dependencies)
-- ✅ Custom AIDL interface for billing operations
-- ✅ Complete purchase lifecycle management
-- ✅ Product details and purchase history
-- ✅ Purchase consumption and acknowledgment
-- ✅ **RSA signature verification for security**
+- ✅ **Dual Market Support**: CafeBazaar and Myket
+- ✅ **Environment Configuration**: Configure via `.env` file
+- ✅ **App Detection**: Automatically detects installed market apps
+- ✅ **RSA Key Support**: Signature verification for both markets
+- ✅ **Error Handling**: Comprehensive error handling and logging
+- ✅ **Market Switching**: Dynamic market switching based on configuration
 
 ## Installation
 
-Add the dependency to your `pubspec.yaml`:
+Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  iran_market_iap: ^0.0.1
-  flutter_dotenv: ^5.1.0
+  iran_market_iap: ^0.0.17
 ```
 
-## Setup
+## Configuration
 
-### 1. Environment Configuration
-
-Create a `.env` file in your project root:
+Create a `.env` file in your assets folder:
 
 ```env
+# Market Configuration
 MARKET_TYPE=cafebazaar
-BAZAAR_RSA_PUBLIC_KEY=your_bazaar_public_key_here
-MYKET_RSA_PUBLIC_KEY=your_myket_public_key_here
-```
 
-Supported market types:
-- `cafebazaar` - CafeBazaar market
-- `myket` - Myket market
+# RSA Keys (replace with your actual keys)
+CAFEBAZAAR_RSA_KEY=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
+MYKET_RSA_KEY=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 
-### 2. RSA Key Configuration
-
-#### Getting RSA Public Keys
-
-**For CafeBazaar:**
-1. Go to your CafeBazaar Developer Console
-2. Navigate to your app's settings
-3. Find the "In-App Billing" section
-4. Copy the RSA public key provided by CafeBazaar
-
-**For Myket:**
-1. Go to your Myket Developer Console
-2. Navigate to your app's settings
-3. Find the "In-App Billing" section
-4. Copy the RSA public key provided by Myket
-
-#### Setting RSA Keys
-
-```dart
-// Set RSA key configuration
-final rsaConfig = RSAKeyConfig(
-  publicKey: 'your_rsa_public_key_here',
-);
-MarketIAP.setRSAKeyConfig(rsaConfig);
-```
-
-### 3. Android Permissions
-
-Add the following permissions to your `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="com.farsitel.bazaar.permission.PAYMENT" />
-<uses-permission android:name="ir.mservices.market.permission.PAYMENT" />
-<uses-permission android:name="android.permission.INTERNET" />
-```
-
-### 4. Assets Configuration
-
-Add the `.env` file to your assets in `pubspec.yaml`:
-
-```yaml
-flutter:
-  assets:
-    - .env
+# Debug Settings
+DEBUG_LOGGING=true
 ```
 
 ## Usage
 
-### Basic Setup
+### Basic Initialization
 
 ```dart
-import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:iran_market_iap/market_iap.dart';
+import 'package:iran_market_iap/iran_market_iap.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  runApp(MyApp());
+  // Initialize with market from .env file
+  final result = await MarketIAP.init();
+  print('Initialization result: $result');
 }
 ```
 
-### Initialize the Plugin with RSA Keys
+### Advanced Initialization
 
 ```dart
-// Initialize the plugin
-final initialized = await MarketIAP.initialize();
+// Initialize with specific market and RSA key
+final result = await MarketIAP.init(
+  market: 'myket',
+  rsaKey: 'your_rsa_key_here',
+  enableDebugLogging: true,
+);
+```
 
-if (initialized) {
-  // Set RSA key configuration
-  final rsaConfig = RSAKeyConfig(
-    publicKey: MarketIAP.getRSAKeyForMarket(),
-  );
-  MarketIAP.setRSAKeyConfig(rsaConfig);
-  
-  print('Market IAP initialized for ${MarketIAP.currentMarketType}');
+### Connect to Billing Service
+
+```dart
+// Connect to billing service
+final connectResult = await MarketIAP.connect();
+if (connectResult['success'] == true) {
+  print('Connected successfully to ${connectResult['market']}');
+}
+```
+
+### Purchase Products
+
+```dart
+// Purchase a product
+final purchaseResult = await MarketIAP.purchase(
+  'product_id',
+  developerPayload: 'optional_payload',
+);
+
+if (purchaseResult['success'] == true) {
+  print('Purchase successful!');
 } else {
-  print('Failed to initialize Market IAP');
+  print('Purchase failed: ${purchaseResult['error']}');
+}
+```
+
+### Consume Purchases
+
+```dart
+// Consume a purchase
+final consumeResult = await MarketIAP.consume('purchase_token');
+if (consumeResult['success'] == true) {
+  print('Purchase consumed successfully');
+}
+```
+
+### Get Purchases
+
+```dart
+// Get all purchases
+final purchasesResult = await MarketIAP.getPurchases();
+if (purchasesResult['success'] == true) {
+  final purchases = purchasesResult['purchases'] as List;
+  print('Found ${purchases.length} purchases');
+}
+```
+
+### Get SKU Details
+
+```dart
+// Get SKU details
+final skuResult = await MarketIAP.getSkuDetails(['sku1', 'sku2']);
+if (skuResult['success'] == true) {
+  final skuDetails = skuResult['skuDetails'] as List;
+  print('Found ${skuDetails.length} SKU details');
 }
 ```
 
@@ -128,223 +127,135 @@ final isSupported = await MarketIAP.isBillingSupported();
 print('Billing supported: $isSupported');
 ```
 
-### Get Product Details
+### Disconnect
 
 ```dart
-// Get product details
-final productIds = ['premium_feature', 'remove_ads'];
-final products = await MarketIAP.getProducts(productIds);
-
-for (final product in products) {
-  print('Product: ${product.title} - ${product.price}');
-}
+// Disconnect from billing service
+await MarketIAP.disconnect();
 ```
 
-### Purchase a Product
+## API Reference
 
-```dart
-// Purchase a product
-final purchase = await MarketIAP.purchase(
-  'premium_feature',
-  developerPayload: 'user_123',
-);
+### MarketIAP.init()
 
-if (purchase != null) {
-  print('Purchase successful: ${purchase.productId}');
-  print('Order ID: ${purchase.orderId}');
-  print('Purchase Token: ${purchase.purchaseToken}');
-  
-  // Verify purchase signature
-  final isValid = await MarketIAP.verifyPurchaseSignature(purchase);
-  print('Purchase signature valid: $isValid');
-} else {
-  print('Purchase failed or cancelled');
-}
-```
+Initialize the plugin with market configuration.
 
-### Get Purchases (with signature verification)
+**Parameters:**
+- `market` (String, optional): Market type ('cafebazaar' or 'myket')
+- `rsaKey` (String, optional): RSA public key for signature verification
+- `enableDebugLogging` (bool, optional): Enable debug logging
 
-```dart
-// Get all purchases (signatures are automatically verified if RSA key is configured)
-final purchases = await MarketIAP.getPurchases();
+**Returns:** Map with initialization result
 
-for (final purchase in purchases) {
-  print('Purchased: ${purchase.productId}');
-  print('Order: ${purchase.orderId}');
-  print('Signature: ${purchase.signature != null ? 'Verified' : 'Not verified'}');
-}
-```
+### MarketIAP.connect()
 
-### Consume a Purchase
+Connect to the billing service.
 
-```dart
-// Consume a purchase
-final success = await MarketIAP.consume(purchaseToken);
+**Returns:** Map with connection result
 
-if (success) {
-  print('Purchase consumed successfully');
-} else {
-  print('Failed to consume purchase');
-}
-```
+### MarketIAP.purchase(productId, developerPayload)
 
-### Check Purchase Status
+Purchase a product.
 
-```dart
-// Check if a product is purchased
-final isPurchased = await MarketIAP.isPurchased('premium_feature');
-print('Premium feature purchased: $isPurchased');
-```
+**Parameters:**
+- `productId` (String): Product ID to purchase
+- `developerPayload` (String, optional): Developer payload
 
-### Get Purchase History
+**Returns:** Map with purchase result
 
-```dart
-// Get purchase history (signatures are automatically verified)
-final history = await MarketIAP.getPurchaseHistory();
+### MarketIAP.consume(purchaseToken)
 
-for (final purchase in history) {
-  print('History: ${purchase.productId} - ${purchase.purchaseTime}');
-  print('Signature verified: ${purchase.signature != null}');
-}
-```
+Consume a purchase.
 
-### Acknowledge Purchase
+**Parameters:**
+- `purchaseToken` (String): Purchase token to consume
 
-```dart
-// Acknowledge a purchase
-final success = await MarketIAP.acknowledgePurchase(
-  purchaseToken,
-  developerPayload: 'acknowledgment',
-);
+**Returns:** Map with consume result
 
-if (success) {
-  print('Purchase acknowledged successfully');
-} else {
-  print('Failed to acknowledge purchase');
-}
-```
+### MarketIAP.getPurchases()
 
-### Verify Purchase Signature Manually
+Get all purchased products.
 
-```dart
-// Verify a purchase signature manually
-final isValid = await MarketIAP.verifyPurchaseSignature(purchaseData);
+**Returns:** Map with purchases list
 
-if (isValid) {
-  print('Purchase signature is valid');
-} else {
-  print('Purchase signature is invalid');
-}
-```
+### MarketIAP.getSkuDetails(skuIds)
 
-## RSA Key Security
+Get SKU details for products.
 
-### Why RSA Keys are Important
+**Parameters:**
+- `skuIds` (List<String>): List of SKU IDs
 
-RSA signature verification is crucial for security because:
+**Returns:** Map with SKU details
 
-1. **Prevents Fraud**: Ensures purchases are actually made through the legitimate market
-2. **Data Integrity**: Verifies that purchase data hasn't been tampered with
-3. **Revenue Protection**: Prevents fake purchase claims
+### MarketIAP.isBillingSupported()
 
-### How It Works
+Check if billing is supported.
 
-1. **Market Signs Purchase**: When a purchase is made, the market (CafeBazaar/Myket) signs the purchase data with their private key
-2. **App Verifies Signature**: Your app uses the market's public key to verify the signature
-3. **Secure Processing**: Only verified purchases are processed
+**Returns:** bool indicating billing support
 
-### Best Practices
+### MarketIAP.disconnect()
 
-1. **Always Verify Signatures**: Never process purchases without signature verification
-2. **Store Keys Securely**: Keep RSA public keys in environment variables, not in code
-3. **Use Different Keys**: Each market has its own RSA key
-4. **Test Verification**: Always test signature verification in development
+Disconnect from billing service.
 
-## Architecture
+**Returns:** Map with disconnect result
 
-### Dart Layer
-- `MarketIAP` class provides the main interface
-- Uses `flutter_dotenv` to load market type and RSA keys from environment
-- Communicates with native code via `MethodChannel`
-- Includes `RSAKeyConfig` for key management
+## Environment Variables
 
-### Android Layer
-- Custom AIDL interface (`IInAppBillingService.aidl`)
-- Separate implementations for CafeBazaar (`BazaarBilling.kt`) and Myket (`MyketBilling.kt`)
-- Platform channel handler (`MarketIapPlugin.kt`) routes calls to appropriate implementation
-- **RSA signature verification using SHA256withRSA algorithm**
-
-### Key Components
-
-1. **AIDL Interface**: Defines the contract for billing operations
-2. **BazaarBilling**: Handles CafeBazaar market billing
-3. **MyketBilling**: Handles Myket market billing
-4. **MarketIapPlugin**: Main plugin class that handles platform communication
-5. **RSA Verification**: Secure signature verification for all purchases
-
-## Example App
-
-The `/example` folder contains a complete Flutter app demonstrating all plugin features:
-
-- Initialize the plugin with RSA keys
-- Check billing support
-- Get product details
-- Purchase products with signature verification
-- Manage purchases with automatic signature verification
-- Handle purchase consumption
-- Manual signature verification
-
-To run the example:
-
-```bash
-cd example
-flutter pub get
-flutter run
-```
-
-## Market-Specific Notes
-
-### CafeBazaar
-- Package: `com.farsitel.bazaar`
-- Service: `com.farsitel.bazaar.service.InAppBillingService.BIND`
-- Permission: `com.farsitel.bazaar.permission.PAYMENT`
-- RSA Key: Get from CafeBazaar Developer Console
-
-### Myket
-- Package: `ir.mservices.market`
-- Service: `ir.mservices.market.service.InAppBillingService.BIND`
-- Permission: `ir.mservices.market.permission.PAYMENT`
-- RSA Key: Get from Myket Developer Console
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MARKET_TYPE` | Market to use ('cafebazaar' or 'myket') | 'cafebazaar' |
+| `CAFEBAZAAR_RSA_KEY` | RSA public key for CafeBazaar | null |
+| `MYKET_RSA_KEY` | RSA public key for Myket | null |
+| `DEBUG_LOGGING` | Enable debug logging | true |
 
 ## Error Handling
 
-The plugin includes comprehensive error handling:
+The plugin provides comprehensive error handling:
 
-- Network connectivity issues
-- Market service unavailability
-- Invalid product IDs
-- Purchase failures
-- Service binding errors
-- **RSA signature verification failures**
+```dart
+try {
+  final result = await MarketIAP.purchase('product_id');
+  if (result['success'] == true) {
+    // Handle success
+  } else {
+    // Handle error
+    print('Error: ${result['error']}');
+  }
+} catch (e) {
+  print('Exception: $e');
+}
+```
 
-All methods return appropriate error states and log detailed error messages for debugging.
+## Logging
 
-## Security Considerations
+Enable debug logging to see detailed information:
 
-1. **Never Store Private Keys**: Only public keys should be in your app
-2. **Verify All Purchases**: Always verify purchase signatures before processing
-3. **Use HTTPS**: Ensure all network communications are secure
-4. **Regular Key Updates**: Keep RSA keys updated as provided by markets
-5. **Test Thoroughly**: Test signature verification in all scenarios
+```dart
+await MarketIAP.init(enableDebugLogging: true);
+```
 
-## Contributing
+Logs will show:
+- Market detection
+- App installation status
+- Service connection attempts
+- Purchase flow details
+- Error messages
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+## Platform Support
+
+- ✅ Android (API 21+)
+- ❌ iOS (Not supported - Iran markets are Android-only)
+
+## Dependencies
+
+- Flutter 3.0+
+- Android API 21+
+- Kotlin 1.9.20+
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

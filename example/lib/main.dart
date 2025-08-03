@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:iran_market_iap/market_iap.dart';
+import 'package:iran_market_iap/iran_market_iap.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+void main() {
   runApp(const MyApp());
 }
 
@@ -14,247 +11,199 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Market IAP Example',
+      title: 'Iran Market IAP Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Market IAP Example'),
+      home: const MarketIAPDemo(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+class MarketIAPDemo extends StatefulWidget {
+  const MarketIAPDemo({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MarketIAPDemo> createState() => _MarketIAPDemoState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MarketIAPDemoState extends State<MarketIAPDemo> {
+  String _status = 'Initializing...';
+  String _currentMarket = 'Unknown';
   bool _isInitialized = false;
   bool _isBillingSupported = false;
-  List<ProductData> _products = [];
   List<PurchaseData> _purchases = [];
-  String _statusMessage = '';
+  List<ProductData> _products = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeMarketIAP();
+    _initializePlugin();
   }
 
-  /// Initialize the Market IAP plugin
-  Future<void> _initializeMarketIAP() async {
+  Future<void> _initializePlugin() async {
     try {
       setState(() {
-        _statusMessage = 'Initializing Market IAP...';
+        _status = 'Initializing plugin...';
       });
 
+      // Initialize the plugin
       final initialized = await MarketIAP.initialize();
       
       if (initialized) {
-        final marketType = MarketIAP.currentMarketType;
         setState(() {
           _isInitialized = true;
-          _statusMessage = 'Market IAP initialized successfully for ${marketType?.name}';
+          _currentMarket = MarketIAP.currentMarketType?.name ?? 'Unknown';
+          _status = 'Initialized successfully for $_currentMarket';
         });
 
-        // Set RSA key configuration
-        _setupRSAKeys();
-
-        // Check if billing is supported
+        // Check billing support
         await _checkBillingSupport();
       } else {
         setState(() {
-          _statusMessage = 'Failed to initialize Market IAP';
+          _status = 'Initialization failed';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error initializing Market IAP: $e';
+        _status = 'Error during initialization: $e';
       });
     }
   }
 
-  /// Setup RSA keys for purchase verification
-  void _setupRSAKeys() {
-    try {
-      final marketType = MarketIAP.currentMarketType;
-      String publicKey = '';
-
-      // Get RSA key based on market type
-      switch (marketType) {
-        case MarketType.cafebazaar:
-          publicKey = dotenv.env['BAZAAR_RSA_PUBLIC_KEY'] ?? '';
-          break;
-        case MarketType.myket:
-          publicKey = dotenv.env['MYKET_RSA_PUBLIC_KEY'] ?? '';
-          break;
-        default:
-          publicKey = '';
-      }
-
-      if (publicKey.isNotEmpty) {
-        final rsaConfig = RSAKeyConfig(publicKey: publicKey);
-        MarketIAP.setRSAKeyConfig(rsaConfig);
-        setState(() {
-          _statusMessage = 'RSA key configured for ${marketType?.name}';
-        });
-      } else {
-        setState(() {
-          _statusMessage = 'Warning: No RSA key configured for ${marketType?.name}';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error setting up RSA keys: $e';
-      });
-    }
-  }
-
-  /// Check if billing is supported
   Future<void> _checkBillingSupport() async {
     try {
       final isSupported = await MarketIAP.isBillingSupported();
       setState(() {
         _isBillingSupported = isSupported;
-        _statusMessage = 'Billing supported: $isSupported';
+        _status = 'Billing supported: $isSupported';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error checking billing support: $e';
+        _status = 'Error checking billing support: $e';
       });
     }
   }
 
-  /// Get product details
-  Future<void> _getProducts() async {
+  Future<void> _purchaseProduct() async {
     try {
       setState(() {
-        _statusMessage = 'Getting products...';
+        _status = 'Starting purchase...';
       });
 
-      // Example product IDs - replace with your actual product IDs
-      final productIds = ['premium_feature', 'remove_ads', 'unlock_all'];
-      final products = await MarketIAP.getProducts(productIds);
-      
-      setState(() {
-        _products = products;
-        _statusMessage = 'Found ${products.length} products';
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error getting products: $e';
-      });
-    }
-  }
+      final purchase = await MarketIAP.purchase(
+        'test_product_1',
+        developerPayload: 'test_payload_${DateTime.now().millisecondsSinceEpoch}',
+      );
 
-  /// Purchase a product
-  Future<void> _purchaseProduct(String productId) async {
-    try {
-      setState(() {
-        _statusMessage = 'Purchasing $productId...';
-      });
-
-      final purchase = await MarketIAP.purchase(productId, developerPayload: 'example_payload');
-      
       if (purchase != null) {
         setState(() {
-          _statusMessage = 'Purchase successful: ${purchase.productId}';
+          _status = 'Purchase successful! Product: ${purchase.productId}';
         });
-        
-        // Verify purchase signature
-        await _verifyPurchaseSignature(purchase);
         
         // Refresh purchases list
         await _getPurchases();
       } else {
         setState(() {
-          _statusMessage = 'Purchase failed or cancelled';
+          _status = 'Purchase failed or cancelled';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error purchasing product: $e';
+        _status = 'Error during purchase: $e';
       });
     }
   }
 
-  /// Verify purchase signature
-  Future<void> _verifyPurchaseSignature(PurchaseData purchase) async {
-    try {
-      final isValid = await MarketIAP.verifyPurchaseSignature(purchase);
-      setState(() {
-        _statusMessage = 'Purchase signature verification: ${isValid ? 'Valid' : 'Invalid'}';
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error verifying purchase signature: $e';
-      });
-    }
-  }
-
-  /// Get all purchases
   Future<void> _getPurchases() async {
     try {
       setState(() {
-        _statusMessage = 'Getting purchases...';
+        _status = 'Getting purchases...';
       });
 
       final purchases = await MarketIAP.getPurchases();
       
       setState(() {
         _purchases = purchases;
-        _statusMessage = 'Found ${purchases.length} purchases (signatures verified)';
+        _status = 'Found ${purchases.length} purchases';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error getting purchases: $e';
+        _status = 'Error getting purchases: $e';
       });
     }
   }
 
-  /// Consume a purchase
-  Future<void> _consumePurchase(String purchaseToken) async {
+  Future<void> _getProducts() async {
     try {
       setState(() {
-        _statusMessage = 'Consuming purchase...';
+        _status = 'Getting products...';
+      });
+
+      final products = await MarketIAP.getProducts(['test_product_1', 'test_product_2']);
+      
+      setState(() {
+        _products = products;
+        _status = 'Found ${products.length} products';
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Error getting products: $e';
+      });
+    }
+  }
+
+  Future<void> _consumePurchase() async {
+    if (_purchases.isEmpty) {
+      setState(() {
+        _status = 'No purchases available to consume';
+      });
+      return;
+    }
+
+    try {
+      final purchaseToken = _purchases.first.purchaseToken;
+      
+      setState(() {
+        _status = 'Consuming purchase...';
       });
 
       final success = await MarketIAP.consume(purchaseToken);
       
       if (success) {
         setState(() {
-          _statusMessage = 'Purchase consumed successfully';
+          _status = 'Purchase consumed successfully';
         });
         
         // Refresh purchases list
         await _getPurchases();
       } else {
         setState(() {
-          _statusMessage = 'Failed to consume purchase';
+          _status = 'Failed to consume purchase';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error consuming purchase: $e';
+        _status = 'Error consuming purchase: $e';
       });
     }
   }
 
-  /// Check if a product is purchased
-  Future<void> _checkIfPurchased(String productId) async {
+  Future<void> _checkIfPurchased() async {
     try {
-      final isPurchased = await MarketIAP.isPurchased(productId);
       setState(() {
-        _statusMessage = '$productId is purchased: $isPurchased';
+        _status = 'Checking purchase status...';
+      });
+
+      final isPurchased = await MarketIAP.isPurchased('test_product_1');
+      
+      setState(() {
+        _status = 'test_product_1 is purchased: $isPurchased';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error checking purchase status: $e';
+        _status = 'Error checking purchase status: $e';
       });
     }
   }
@@ -264,14 +213,14 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: const Text('Iran Market IAP Demo'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            // Status section
+          children: [
+            // Status Section
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -283,23 +232,21 @@ class _MyHomePageState extends State<MyHomePage> {
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 8),
+                    Text('Current Market: $_currentMarket'),
                     Text('Initialized: $_isInitialized'),
                     Text('Billing Supported: $_isBillingSupported'),
-                    Text('Current Market: ${MarketIAP.currentMarketType?.name ?? 'Unknown'}'),
-                    Text('RSA Key Configured: ${MarketIAP.currentRSAKeyConfig != null}'),
                     const SizedBox(height: 8),
                     Text(
-                      _statusMessage,
-                      style: const TextStyle(fontStyle: FontStyle.italic),
+                      _status,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
             ),
-            
             const SizedBox(height: 16),
-            
-            // Action buttons
+
+            // Action Buttons
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -310,11 +257,15 @@ class _MyHomePageState extends State<MyHomePage> {
                       'Actions',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        ElevatedButton(
+                          onPressed: _isInitialized ? _purchaseProduct : null,
+                          child: const Text('Purchase Product'),
+                        ),
                         ElevatedButton(
                           onPressed: _isInitialized ? _getProducts : null,
                           child: const Text('Get Products'),
@@ -324,12 +275,12 @@ class _MyHomePageState extends State<MyHomePage> {
                           child: const Text('Get Purchases'),
                         ),
                         ElevatedButton(
-                          onPressed: _isInitialized ? () => _purchaseProduct('premium_feature') : null,
-                          child: const Text('Purchase Premium'),
+                          onPressed: _isInitialized ? _consumePurchase : null,
+                          child: const Text('Consume Purchase'),
                         ),
                         ElevatedButton(
-                          onPressed: _isInitialized ? () => _checkIfPurchased('premium_feature') : null,
-                          child: const Text('Check Premium'),
+                          onPressed: _isInitialized ? _checkIfPurchased : null,
+                          child: const Text('Check Purchase'),
                         ),
                       ],
                     ),
@@ -337,10 +288,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            
             const SizedBox(height: 16),
-            
-            // Products section
+
+            // Products Section
             if (_products.isNotEmpty) ...[
               Card(
                 child: Padding(
@@ -356,10 +306,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ...(_products.map((product) => ListTile(
                         title: Text(product.title),
                         subtitle: Text('${product.price} - ${product.description}'),
-                        trailing: ElevatedButton(
-                          onPressed: () => _purchaseProduct(product.productId),
-                          child: const Text('Buy'),
-                        ),
+                        trailing: Text(product.productId),
                       ))),
                     ],
                   ),
@@ -367,8 +314,8 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               const SizedBox(height: 16),
             ],
-            
-            // Purchases section
+
+            // Purchases Section
             if (_purchases.isNotEmpty) ...[
               Card(
                 child: Padding(
@@ -384,22 +331,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ...(_purchases.map((purchase) => ListTile(
                         title: Text(purchase.productId),
                         subtitle: Text('Order: ${purchase.orderId}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (purchase.signature != null)
-                              Icon(
-                                Icons.verified,
-                                color: Colors.green,
-                                size: 16,
-                              ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () => _consumePurchase(purchase.purchaseToken),
-                              child: const Text('Consume'),
-                            ),
-                          ],
-                        ),
+                        trailing: Text(purchase.purchaseToken.substring(0, 10) + '...'),
                       ))),
                     ],
                   ),

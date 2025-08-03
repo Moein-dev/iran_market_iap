@@ -1,6 +1,6 @@
 name: iran_market_iap
 description: "A Flutter plugin for in-app purchases supporting Myket and CafeBazaar markets using Platform Channels."
-version: 0.0.12
+version: 0.0.17
 homepage:
 
 environment:

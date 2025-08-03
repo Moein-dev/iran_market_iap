@@ -142,11 +142,21 @@ class MarketIAP {
         orElse: () => MarketType.cafebazaar,
       );
 
+      if (kDebugMode) {
+        print('MarketIAP: Initializing with market type: ${_currentMarketType!.name}');
+      }
+
       // Initialize native implementation
       final result = await _channel.invokeMethod('init', {
         'market': _currentMarketType!.name,
       });
 
+      if (kDebugMode) {
+        print('MarketIAP: Native initialization result: $result');
+      }
+
+      // Even if the billing service connection fails, we consider initialization successful
+      // The billing operations will handle the connection state
       return result == true;
     } catch (e) {
       if (kDebugMode) {
@@ -175,10 +185,34 @@ class MarketIAP {
       final result = await _channel.invokeMethod('isBillingSupported', {
         'market': _currentMarketType!.name,
       });
+      
+      if (kDebugMode) {
+        print('MarketIAP: Billing supported: $result');
+      }
+      
       return result == true;
     } catch (e) {
       if (kDebugMode) {
         print('MarketIAP isBillingSupported failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Check if the billing service is available (app installed and service accessible)
+  static Future<bool> isBillingServiceAvailable() async {
+    try {
+      // Try to get billing support status
+      final isSupported = await isBillingSupported();
+      
+      if (kDebugMode) {
+        print('MarketIAP: Billing service available: $isSupported');
+      }
+      
+      return isSupported;
+    } catch (e) {
+      if (kDebugMode) {
+        print('MarketIAP isBillingServiceAvailable failed: $e');
       }
       return false;
     }

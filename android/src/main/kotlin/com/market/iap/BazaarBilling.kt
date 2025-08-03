@@ -48,10 +48,20 @@ class BazaarBilling(private val context: Context) {
      * Connect to CafeBazaar billing service
      */
     fun connect(): Boolean {
-        try {
+        return try {
             val intent = Intent(BAZAAR_BILLING_SERVICE)
             intent.setPackage(BAZAAR_PACKAGE)
-            return context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            
+            // Check if the service is available
+            val resolveInfo = context.packageManager.resolveService(intent, 0)
+            if (resolveInfo == null) {
+                Log.w(TAG, "CafeBazaar billing service not available - app may not be installed")
+                return false
+            }
+            
+            val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            Log.d(TAG, "CafeBazaar billing service bind result: $result")
+            return result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to Bazaar billing service", e)
             return false

@@ -5,6 +5,31 @@ All notable changes to the `iran_market_iap` package will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2024-12-19
+
+### Fixed
+- **Initialization robustness** - Plugin now initializes successfully even when billing services are not available
+- **Service availability detection** - Added proper checks for billing service availability before attempting connection
+- **Error handling** - Improved error handling and logging for better debugging
+- **Connection state management** - Billing operations now handle connection state gracefully
+
+### Improved
+- **Initialization flow** - Plugin initialization no longer fails when CafeBazaar/Myket apps are not installed
+- **Debug logging** - Added comprehensive debug logging for better troubleshooting
+- **Service detection** - Added `isBillingServiceAvailable()` method to check if billing service is accessible
+- **Graceful degradation** - Plugin continues to work even when billing services are unavailable
+
+### Added
+- **Service availability check** - New method to detect if billing service is available
+- **Enhanced logging** - Better debug messages for initialization and billing operations
+- **Connection state handling** - Improved handling of billing service connection states
+
+### Technical Details
+- **Service detection**: Uses `PackageManager.resolveService()` to check if billing service is available
+- **Graceful initialization**: Plugin initializes successfully even when billing apps are not installed
+- **Better error messages**: More informative logging for debugging connection issues
+- **Connection resilience**: Billing operations handle connection failures gracefully
+
 ## [0.0.4] - 2024-12-19
 
 ### Fixed

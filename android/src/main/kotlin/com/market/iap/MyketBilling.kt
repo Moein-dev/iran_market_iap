@@ -48,10 +48,20 @@ class MyketBilling(private val context: Context) {
      * Connect to Myket billing service
      */
     fun connect(): Boolean {
-        try {
+        return try {
             val intent = Intent(MYKET_BILLING_SERVICE)
             intent.setPackage(MYKET_PACKAGE)
-            return context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            
+            // Check if the service is available
+            val resolveInfo = context.packageManager.resolveService(intent, 0)
+            if (resolveInfo == null) {
+                Log.w(TAG, "Myket billing service not available - app may not be installed")
+                return false
+            }
+            
+            val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            Log.d(TAG, "Myket billing service bind result: $result")
+            return result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to Myket billing service", e)
             return false

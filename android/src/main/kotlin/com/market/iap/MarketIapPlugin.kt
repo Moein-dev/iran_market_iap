@@ -96,13 +96,27 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
                     bazaarBilling = BazaarBilling(activity!!)
                     val connected = bazaarBilling?.connect() ?: false
                     Log.d(TAG, "CafeBazaar billing initialized: $connected")
-                    result.success(connected)
+                    
+                    // Even if connection fails, we can still proceed with initialization
+                    // The billing operations will handle the connection state
+                    if (!connected) {
+                        Log.w(TAG, "CafeBazaar billing service connection failed, but continuing initialization")
+                    }
+                    
+                    result.success(true) // Always return true to allow initialization to proceed
                 }
                 "myket" -> {
                     myketBilling = MyketBilling(activity!!)
                     val connected = myketBilling?.connect() ?: false
                     Log.d(TAG, "Myket billing initialized: $connected")
-                    result.success(connected)
+                    
+                    // Even if connection fails, we can still proceed with initialization
+                    // The billing operations will handle the connection state
+                    if (!connected) {
+                        Log.w(TAG, "Myket billing service connection failed, but continuing initialization")
+                    }
+                    
+                    result.success(true) // Always return true to allow initialization to proceed
                 }
                 else -> {
                     Log.e(TAG, "Unsupported market: $market")

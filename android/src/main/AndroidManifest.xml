@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.market.iap">
+
+    <!-- Permissions required for in-app billing -->
+    <uses-permission android:name="com.farsitel.bazaar.permission.PAYMENT" />
+    <uses-permission android:name="ir.mservices.market.permission.PAYMENT" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- Plugin registration -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+</manifest>

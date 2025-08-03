@@ -50,12 +50,25 @@ class MyketBilling(private val context: Context) {
      */
     fun connect(): Boolean {
         return try {
-            // First, check if the app is installed
+            // First, check if the app is installed with more detailed logging
+            Log.d(TAG, "Checking if Myket app is installed with package: $MYKET_PACKAGE")
+            
+            // Use a more reliable method to check if app is installed
             val appInstalled = try {
-                context.packageManager.getPackageInfo(MYKET_PACKAGE, 0)
+                // Try to get application info instead of package info
+                val applicationInfo = context.packageManager.getApplicationInfo(MYKET_PACKAGE, 0)
+                Log.d(TAG, "Myket app found: ${applicationInfo.packageName}")
                 true
             } catch (e: Exception) {
-                false
+                // If that fails, try to get package info
+                try {
+                    val packageInfo = context.packageManager.getPackageInfo(MYKET_PACKAGE, 0)
+                    Log.d(TAG, "Myket app found via package info: ${packageInfo.packageName}")
+                    true
+                } catch (e2: Exception) {
+                    Log.w(TAG, "Myket app not found: $e2")
+                    false
+                }
             }
             
             if (!appInstalled) {

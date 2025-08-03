@@ -112,7 +112,7 @@ class BazaarBilling(private val context: Context) {
                 skuDetailsList.mapNotNull { skuDetails ->
                     try {
                         val json = JSONObject(skuDetails)
-                        mapOf(
+                        mapOf<String, Any>(
                             "productId" to json.getString("productId"),
                             "title" to json.getString("title"),
                             "description" to json.getString("description"),
@@ -155,7 +155,7 @@ class BazaarBilling(private val context: Context) {
                 purchaseDataList.mapIndexedNotNull { index, purchaseData ->
                     try {
                         val json = JSONObject(purchaseData)
-                        mapOf(
+                        mapOf<String, Any>(
                             "productId" to json.getString("productId"),
                             "purchaseToken" to json.getString("purchaseToken"),
                             "orderId" to json.getString("orderId"),
@@ -200,7 +200,7 @@ class BazaarBilling(private val context: Context) {
                 purchaseDataList.mapIndexedNotNull { index, purchaseData ->
                     try {
                         val json = JSONObject(purchaseData)
-                        mapOf(
+                        mapOf<String, Any>(
                             "productId" to json.getString("productId"),
                             "purchaseToken" to json.getString("purchaseToken"),
                             "orderId" to json.getString("orderId"),
@@ -303,8 +303,8 @@ class BazaarBilling(private val context: Context) {
 
             if (responseCode == 0) {
                 val pendingIntent = response?.getParcelable<android.app.PendingIntent>("BUY_INTENT")
-                mapOf(
-                    "pendingIntent" to pendingIntent,
+                mapOf<String, Any>(
+                    "pendingIntent" to (pendingIntent ?: ""),
                     "responseCode" to responseCode
                 )
             } else {

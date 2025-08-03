@@ -5,6 +5,26 @@ All notable changes to the `iran_market_iap` package will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2024-12-19
+
+### Fixed
+- **Kotlin compilation errors** - Replaced AIDL interface with Kotlin interface to resolve compilation issues
+- **Type inference issues** - Fixed JSON parsing with explicit type annotations (`mapOf<String, Any>`)
+- **Unresolved references** - Fixed all method calls and property access in billing classes
+- **Build system compatibility** - Resolved Android NDK version conflicts and build errors
+- **Interface generation** - Created `IInAppBillingService.kt` to replace problematic AIDL compilation
+
+### Improved
+- **Build reliability** - Plugin now compiles and runs successfully without AIDL compilation issues
+- **Type safety** - Added explicit type annotations to prevent inference errors
+- **Code structure** - Simplified interface implementation using pure Kotlin
+
+### Technical Details
+- **Replaced AIDL with Kotlin interface**: `IInAppBillingService.kt` now provides the billing interface
+- **Fixed type inference**: All `mapOf()` calls now use explicit `mapOf<String, Any>()` type annotations
+- **Resolved method calls**: Fixed all JSON parsing and billing service method calls
+- **Build compatibility**: Works with Android NDK 27.0.12077973 and modern build tools
+
 ## [0.0.3] - 2024-12-19
 
 ### Fixed

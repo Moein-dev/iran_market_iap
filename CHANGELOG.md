@@ -5,6 +5,24 @@ All notable changes to the `iran_market_iap` package will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2024-12-19
+
+### Fixed
+- **AIDL interface generation** - Added proper AIDL source directory configuration in `android/build.gradle`
+- **JSON parsing issues** - Fixed JSONObject usage by adding proper JSON library dependency
+- **Plugin registration** - Removed deprecated plugin registration code that was causing build errors
+- **Build compatibility** - Fixed compilation errors with modern Android Gradle Plugin
+- **Import issues** - Fixed unresolved references in Kotlin files
+
+### Added
+- **JSON library dependency** - Added `org.json:json:20231013` for proper JSON parsing
+- **AIDL source configuration** - Added `main.aidl.srcDirs += 'src/main/aidl'` to build.gradle
+
+### Technical Details
+- **AIDL support**: Properly configured for interface generation
+- **JSON parsing**: Fixed with proper library dependency
+- **Build system**: Compatible with AGP 8.0+ and modern Android builds
+
 ## [0.0.2] - 2024-12-19
 
 ### Fixed

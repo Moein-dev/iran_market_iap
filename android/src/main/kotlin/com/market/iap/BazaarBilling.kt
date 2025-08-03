@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**

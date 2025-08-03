@@ -397,17 +397,4 @@ class MarketIapPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginR
         }
         return false
     }
-}
-
-/**
- * Plugin registration class
- */
-class MarketIapPluginRegistrant {
-    companion object {
-        @JvmStatic
-        fun registerWith(registrar: io.flutter.plugin.common.PluginRegistry.Registrar) {
-            val channel = io.flutter.plugin.common.MethodChannel(registrar.messenger(), "market_iap")
-            channel.setMethodCallHandler(MarketIapPlugin())
-        }
-    }
 } 

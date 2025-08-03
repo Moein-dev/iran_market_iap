@@ -50,51 +50,16 @@ class MyketBilling(private val context: Context) {
      */
     fun connect(): Boolean {
         return try {
-            // First, check if the app is installed with more detailed logging
-            Log.d(TAG, "Checking if Myket app is installed with package: $MYKET_PACKAGE")
+            Log.d(TAG, "Attempting to connect to Myket billing service...")
             
-            // Use a more reliable method to check if app is installed
-            val appInstalled = try {
-                // Try to get application info instead of package info
-                val applicationInfo = context.packageManager.getApplicationInfo(MYKET_PACKAGE, 0)
-                Log.d(TAG, "Myket app found: ${applicationInfo.packageName}")
-                true
-            } catch (e: Exception) {
-                // If that fails, try to get package info
-                try {
-                    val packageInfo = context.packageManager.getPackageInfo(MYKET_PACKAGE, 0)
-                    Log.d(TAG, "Myket app found via package info: ${packageInfo.packageName}")
-                    true
-                } catch (e2: Exception) {
-                    Log.w(TAG, "Myket app not found: $e2")
-                    false
-                }
-            }
-            
-            if (!appInstalled) {
-                Log.w(TAG, "Myket app is not installed")
-                return false
-            }
-            
-            Log.d(TAG, "Myket app is installed, checking for billing services...")
-            
-            // List all services in the app for debugging
-            try {
-                val packageInfo = context.packageManager.getPackageInfo(MYKET_PACKAGE, PackageManager.GET_SERVICES)
-                Log.d(TAG, "Available services in Myket:")
-                packageInfo.services?.forEach { service ->
-                    Log.d(TAG, "  - ${service.name}")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not list services: $e")
-            }
-            
-            // Try different service names
+            // Try different service names directly without checking if app is installed
             val serviceNames = listOf(
+                "ir.mservices.market.InAppBillingService.BIND",
                 "ir.mservices.market.service.InAppBillingService.BIND",
                 "ir.mservices.market.service.BillingService.BIND",
                 "ir.mservices.market.service.IInAppBillingService.BIND",
-                "ir.mservices.market.billing.InAppBillingService.BIND"
+                "ir.mservices.market.billing.InAppBillingService.BIND",
+                "ir.mservices.market.InAppBillingService.BIND"
             )
             
             for (serviceName in serviceNames) {
@@ -102,19 +67,17 @@ class MyketBilling(private val context: Context) {
                 val intent = Intent(serviceName)
                 intent.setPackage(MYKET_PACKAGE)
                 
-                // Check if the service is available
-                val resolveInfo = context.packageManager.resolveService(intent, 0)
-                if (resolveInfo != null) {
-                    Log.d(TAG, "Found service: $serviceName")
-                    val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-                    Log.d(TAG, "Myket billing service bind result: $result")
-                    return result
+                // Try to bind directly to the service
+                val result = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+                if (result) {
+                    Log.d(TAG, "Successfully bound to Myket billing service: $serviceName")
+                    return true
                 } else {
-                    Log.d(TAG, "Service not found: $serviceName")
+                    Log.d(TAG, "Failed to bind to service: $serviceName")
                 }
             }
             
-            Log.w(TAG, "Myket app is installed but billing service not found")
+            Log.w(TAG, "Could not bind to any Myket billing service")
             return false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to Myket billing service", e)

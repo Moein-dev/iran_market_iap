@@ -5,6 +5,23 @@ All notable changes to the `iran_market_iap` package will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2024-12-19
+
+### Fixed
+- **Android namespace configuration** - Added explicit namespace declaration in `android/build.gradle`
+- **Android Gradle Plugin compatibility** - Fixed build errors with AGP 8.0+ by adding `namespace 'com.market.iap'`
+- **Library name declaration** - Removed unnecessary `library market_iap;` declaration from `lib/iran_market_iap.dart`
+
+### Improved
+- **Build compatibility** - Plugin now builds successfully in Flutter projects using modern Android build tools
+- **Code quality** - Removed linter warnings and improved code structure
+- **Documentation** - Added proper license link in README file
+
+### Technical Details
+- **Android namespace**: `com.market.iap`
+- **Minimum AGP version**: 8.0+
+- **Build compatibility**: Fixed for modern Android Gradle Plugin requirements
+
 ## [0.0.1] - 2024-12-19
 
 ### Added
